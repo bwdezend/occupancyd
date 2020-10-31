@@ -1,7 +1,7 @@
 .PHONY: test
 
 build: check
-	go build -o occupancyd *go 
+	go build -o occupancyd cmd/occupancyd/*go 
 
 
 check: go_fmt go_lint go_vet
@@ -36,7 +36,7 @@ debug:
 	go run *go -debug -sleep 30
 
 run:
-	go run *go 
+	go run cmd/occupancyd/*go 
 
 
 install:
@@ -50,3 +50,4 @@ test:
 
 clean:
 	-rm occupancyd
+	-rm fmt.out
