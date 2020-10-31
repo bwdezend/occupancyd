@@ -20,35 +20,31 @@ var sleepInterval = flag.Int("sleep", 15, "Sleep interval between occupancy chec
 var idleTimerDuration = flag.Int("idle", 300, "Idle time in seconds to consider unoccupied")
 var deviceName = flag.String("name", "", "Device name")
 var dbPath = flag.String("db", "./db", "Database path")
-var initialState bool
+var screenState bool
 var occupancyState bool
-
-type fileHash struct {
-	path string
-	hash []byte
-}
 
 func init() {
 	flag.Parse()
 	if *sleepInterval > *idleTimerDuration {
 		log.Info.Println("Sleep interval greater than Idle Value!")
 	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Info.Println("Cannot determine hostname", err)
-		panic(0)
-	}
+
 	if *deviceName == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.Info.Println("Cannot determine hostname", err)
+			panic(0)
+		}
 		*deviceName = hostname
 	}
 
-	initialState = checkScreen()
+	screenState = checkScreen()
 	occupancyState = checkOccupied()
 
 	log.Info.Println("deviceName set to", *deviceName)
 	log.Info.Println("sleepInterval set to", *sleepInterval)
 	log.Info.Println("idleTimer set to", *idleTimerDuration)
-	log.Info.Println("screen is currently", initialState)
+	log.Info.Println("screen is currently", screenState)
 	log.Info.Println("occupancy is currently", occupancyState)
 }
 
@@ -109,7 +105,7 @@ func main() {
 	screen.AddService(sensor.Service)
 	screen.Lightbulb.AddLinkedService(sensor.Service)
 
-	if initialState == true {
+	if screenState == true {
 		screen.Lightbulb.On.SetValue(true)
 	} else {
 		screen.Lightbulb.On.SetValue(false)
@@ -123,10 +119,10 @@ func main() {
 
 	screen.Lightbulb.On.OnValueRemoteUpdate(func(on bool) {
 		if on == true {
-			log.Info.Println("Client changed screen to on")
+			log.Info.Println("Remote client turned screen on")
 			setScreenPower(true)
 		} else {
-			log.Info.Println("Client changed screen to off")
+			log.Info.Println("Remote client turned screen off")
 			setScreenPower(false)
 		}
 	})
@@ -139,11 +135,25 @@ func main() {
 				occupancyState = occupied
 			}
 			if occupied == true {
-				//log.Info.Println("Setting occupancy to true")
 				sensor.OccupancyDetected.Int.SetValue(1)
 			} else {
-				//log.Info.Println("Setting occupancy to false")
 				sensor.OccupancyDetected.Int.SetValue(0)
+			}
+			time.Sleep(time.Second * time.Duration(*sleepInterval))
+		}
+	}()
+
+	go func() {
+		for {
+			powered := checkScreen()
+			if powered != screenState {
+				log.Info.Println("Setting screen to", powered)
+				screenState = powered
+			}
+			if powered == true {
+				screen.Lightbulb.On.SetValue(true)
+			} else {
+				screen.Lightbulb.On.SetValue(false)
 			}
 			time.Sleep(time.Second * time.Duration(*sleepInterval))
 		}
