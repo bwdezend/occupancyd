@@ -13,13 +13,13 @@ import (
 )
 
 var homekitPin = flag.String("pin", "12344321", "Homekit Accessory PIN")
-var sleepInterval = flag.Int("sleep", 15, "Sleep interval between occupancy checks")
+var sleepInterval = flag.Int("sleep", 2, "Sleep interval between occupancy checks")
 var idleTimerDuration = flag.Int("idle", 300, "Idle time in seconds to consider unoccupied")
 var deviceName = flag.String("name", "", "Device name")
 var dbPath = flag.String("db", "./db", "Database path")
 var enableMetics = flag.Bool("metrics", true, "Enable prometheus metrics")
 var prometheusPort = flag.Int("promPort", 2112, "Port to reigster /metrics handler on")
-
+var idleTime uint32
 var screen accessory.Lightbulb
 var sensor service.OccupancySensor
 
@@ -33,7 +33,7 @@ func init() {
 		hostname, err := os.Hostname()
 		if err != nil {
 			log.Info.Println("Cannot determine hostname", err)
-			panic(0)
+			panic(err)
 		}
 		*deviceName = hostname
 	}
@@ -41,9 +41,10 @@ func init() {
 	if *enableMetics == true {
 		log.Info.Println("prometheus telemetry enabled on port", *prometheusPort)
 	}
+	idleTime = uint32(*idleTimerDuration)
 	log.Info.Println("deviceName set to", *deviceName)
 	log.Info.Println("sleepInterval set to", *sleepInterval)
-	log.Info.Println("idleTimer set to", *idleTimerDuration)
+	log.Info.Println("idleTimer set to", idleTime)
 
 	//Setup screen and sensor and establish callbacks for remote client
 	// state changes
@@ -73,7 +74,7 @@ func main() {
 		go telemetry.PrometheusMetricsHandler(*prometheusPort)
 	}
 
-	go core.UpdateOccupiedStatus(sensor, *idleTimerDuration, *sleepInterval, *enableMetics)
+	go core.UpdateOccupiedStatus(sensor, idleTime, *sleepInterval, *enableMetics)
 	go core.UpdateScreenStatus(screen, *sleepInterval)
 
 	config := hc.Config{Pin: *homekitPin, StoragePath: *dbPath}

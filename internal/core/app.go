@@ -1,10 +1,10 @@
 package core
 
 import (
-	"os/exec"
-	"strconv"
-	"strings"
 	"time"
+
+	"github.com/BurntSushi/xgb/screensaver"
+	"github.com/BurntSushi/xgb/xproto"
 
 	"github.com/brutella/hc/accessory"
 	"github.com/brutella/hc/log"
@@ -15,61 +15,39 @@ import (
 	"github.com/BurntSushi/xgb/dpms"
 )
 
-func checkScreen() bool {
-	X, err := xgb.NewConn()
-	if err != nil {
-		return false
-	}
-	dpms.Init(X)
-	info, _ := dpms.Info(X).Reply()
-	return info.State
-}
-
-//SetScreenPower toggles dpms states
-func SetScreenPower(powerState bool) bool {
-	X, err := xgb.NewConn()
-	if err != nil {
-		return false
-	}
-	dpms.Init(X)
-	var state uint16
-	state = 0
-	if powerState == false {
-		state = 3
-	}
-
-	dpms.ForceLevel(X, state)
-
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 //CheckOccupied checks for x11 idle time
-func CheckOccupied(idleTimerDuration int, enableMetrics bool) bool {
-	cmd, err := exec.Command("xprintidle").Output()
-	if err != nil {
-		panic(0)
-	}
+func CheckOccupied(X *xgb.Conn, idleTimerDuration uint32, enableMetrics bool) bool {
 
-	output := strings.TrimSuffix(string(cmd), "\n")
-	idleTime, err := strconv.Atoi(string(output))
+	screensaver.Init(X)
+	root := xproto.Setup(X).DefaultScreen(X).Root
+	info, err := screensaver.QueryInfo(X, xproto.Drawable(root)).Reply()
+
 	if err != nil {
 		log.Info.Println(err)
+		panic(err)
 	}
+
+	//log.Info.Println(info.MsSinceUserInput)
+
 	if enableMetrics == true {
-		telemetry.IdleTime.Set(float64(idleTime / 1000))
+		telemetry.IdleTime.Set(float64(info.MsSinceUserInput / 1000))
 	}
-	if idleTime < (idleTimerDuration * 1000) {
+	if info.MsSinceUserInput < (idleTimerDuration * 1000) {
 		return true
 	}
 	return false
 }
 
 //UpdateOccupiedStatus sets occupied status
-func UpdateOccupiedStatus(sensor service.OccupancySensor, idleTimerDuration int, sleepInterval int, enableMetrics bool) {
-	occupancyState := CheckOccupied(idleTimerDuration, enableMetrics)
+func UpdateOccupiedStatus(sensor service.OccupancySensor, idleTimerDuration uint32, sleepInterval int, enableMetrics bool) {
+
+	X, err := xgb.NewConn()
+	if err != nil {
+		log.Info.Println(err)
+		panic(err)
+	}
+
+	occupancyState := CheckOccupied(X, idleTimerDuration, enableMetrics)
 	if occupancyState == true {
 		sensor.OccupancyDetected.Int.SetValue(1)
 	} else {
@@ -77,7 +55,7 @@ func UpdateOccupiedStatus(sensor service.OccupancySensor, idleTimerDuration int,
 	}
 
 	for {
-		occupied := CheckOccupied(idleTimerDuration, enableMetrics)
+		occupied := CheckOccupied(X, idleTimerDuration, enableMetrics)
 		if occupied != occupancyState {
 			log.Info.Println("Setting occupancy to", occupied)
 			occupancyState = occupied
@@ -92,8 +70,13 @@ func UpdateOccupiedStatus(sensor service.OccupancySensor, idleTimerDuration int,
 }
 
 //UpdateScreenStatus updates HomeKit Lightbulb screen status
-func UpdateScreenStatus(screen accessory.Lightbulb, sleepInterval int) {
-	screenState := checkScreen()
+func UpdateScreenStatus(screen accessory.Lightbulb, sleepInterval int) error {
+	X, err := xgb.NewConn()
+	if err != nil {
+		return err
+	}
+
+	screenState := CheckScreen(X)
 
 	if screenState == true {
 		screen.Lightbulb.On.SetValue(true)
@@ -102,7 +85,7 @@ func UpdateScreenStatus(screen accessory.Lightbulb, sleepInterval int) {
 	}
 
 	for {
-		powered := checkScreen()
+		powered := CheckScreen(X)
 		if powered != screenState {
 			log.Info.Println("Setting screen to", powered)
 			screenState = powered
@@ -114,4 +97,31 @@ func UpdateScreenStatus(screen accessory.Lightbulb, sleepInterval int) {
 		}
 		time.Sleep(time.Second * time.Duration(sleepInterval))
 	}
+}
+
+//CheckScreen looks up the current state of DPMS
+func CheckScreen(X *xgb.Conn) bool {
+
+	dpms.Init(X)
+	info, _ := dpms.Info(X).Reply()
+
+	return info.State
+}
+
+//SetScreenPower toggles dpms states
+func SetScreenPower(powerState bool) bool {
+	X, err := xgb.NewConn()
+	if err != nil {
+		log.Info.Println(err)
+	}
+	dpms.Init(X)
+	var state uint16
+	state = 0
+	if powerState == false {
+		state = 3
+	}
+
+	dpms.ForceLevel(X, state)
+
+	return true
 }
