@@ -40,8 +40,10 @@ run:
 
 
 install:
+	systemctl --user stop occupancyd
 	sudo cp occupancyd /usr/local/bin/occupancyd 
 	sudo chmod +x /usr/local/bin/occupancyd
+	systemctl --user start occupancyd
 
 deploy: build install
 

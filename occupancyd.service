@@ -1,0 +1,13 @@
+[Unit]
+Description=OccupancyD
+After=network.target auditd.service
+
+[Service]
+ExecStart=/usr/local/bin/occupancyd -db ~/.occupancyd/db -promPort 2113 -idle 900
+
+Restart=always
+Type=simple
+RestartSec=10s
+
+[Install]
+WantedBy=default.target
