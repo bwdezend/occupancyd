@@ -3,7 +3,7 @@ Description=OccupancyD
 After=network.target auditd.service
 
 [Service]
-ExecStart=/usr/local/bin/occupancyd -db ~/.occupancyd/db -promPort 2113 -idle 900
+ExecStart=/usr/local/bin/occupancyd -db ~/.occupancyd/db
 
 Restart=always
 Type=simple
