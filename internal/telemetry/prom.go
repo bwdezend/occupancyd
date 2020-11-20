@@ -10,17 +10,21 @@ import (
 )
 
 var (
-	lightbulbActivations = promauto.NewCounter(prometheus.CounterOpts{
+	//LightbulbActivations is a counter for the number of times the screen
+	// has changed power states
+	LightbulbActivations = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "occupancyd_lightbulb_activations",
-		Help: "The number of times the screen has been powered on",
+		Help: "The number of times the screen has changed power states",
 	})
 
-	occupancyActivations = promauto.NewCounter(prometheus.CounterOpts{
+	//OccupancyActivations is a counter for the number of times the occupancy
+	// sensor has changed state
+	OccupancyActivations = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "occupancyd_occupancy_activations",
-		Help: "The number of times the occupancy sensor has been activated",
+		Help: "The number of times the occupancy sensor has changed state",
 	})
 
-	//IdleTime is a counter for the number of idle seconds
+	//IdleTime is a counter for the number of idle seconds, reported by xgb
 	IdleTime = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "occupancyd_idle_seconds",
 		Help: "Number of seconds x11 has been idle",

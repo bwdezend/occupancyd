@@ -57,6 +57,7 @@ func UpdateOccupiedStatus(sensor service.OccupancySensor, idleTimerDuration uint
 	for {
 		occupied := CheckOccupied(X, idleTimerDuration, enableMetrics)
 		if occupied != occupancyState {
+			telemetry.OccupancyActivations.Inc()
 			log.Info.Println("Setting occupancy to", occupied)
 			occupancyState = occupied
 		}
@@ -110,6 +111,7 @@ func CheckScreen(X *xgb.Conn) bool {
 
 //SetScreenPower toggles dpms states
 func SetScreenPower(powerState bool) bool {
+	telemetry.LightbulbActivations.Inc()
 	X, err := xgb.NewConn()
 	if err != nil {
 		log.Info.Println(err)
